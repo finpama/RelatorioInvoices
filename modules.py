@@ -1,4 +1,5 @@
 import pdfplumber
+from numbers import Number
 
 coord = {
     'Processo': (136.4, 409.0, 217.9, 423.4),
@@ -57,9 +58,7 @@ def gerarLinha(filepath):
                 case 'Número':
                     invoiceIndex = lastInParentesis(filepath)
                     
-                    try:
-                        int(invoiceIndex)
-                    except ValueError and TypeError:
+                    if not isinstance(invoiceIndex, Number):
                         invoiceIndex = "Sem Número"
                     
                     data[column] = invoiceIndex
