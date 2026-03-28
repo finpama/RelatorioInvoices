@@ -1,5 +1,7 @@
 import pdfplumber
 from numbers import Number
+import pandas as pd
+import os
 
 coord = {
     'Processo': (136.4, 409.0, 217.9, 423.4),
@@ -28,6 +30,7 @@ def lastInParentesis(str):
         return None
     else:
         return str[start:end]
+
 
 def gerarLinha(filepath):
 
@@ -101,3 +104,23 @@ def gerarLinha(filepath):
                     txt = box.extract_text()
                     data[column] = txt
     return data
+
+
+def listaArquivosPdf(dir_path:str) -> list[str]:
+    files = os.listdir(dir_path)
+    pdf_paths = []
+    
+    for file in files:
+        if file.endswith('.pdf') or file.endswith('.PDF'):
+            pdf_path = os.path.join(dir_path, file)
+            pdf_paths.append(pdf_path)
+    
+    return pdf_paths
+
+
+def gerarRelatorio(pdf_paths, output_file='Relatório.xlsx'):
+    data = [gerarLinha(pdf_path) for pdf_path in pdf_paths]
+    df = pd.DataFrame(data)
+
+    df.to_excel(output_file, index=False)
+
