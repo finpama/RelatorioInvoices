@@ -3,6 +3,7 @@
 *.xlsx
 *.xlsm
 *.exe
+*.lnk
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

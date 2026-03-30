@@ -118,7 +118,7 @@ def listaArquivosPdf(dir_path:str) -> list[str]:
     return pdf_paths
 
 
-def gerarRelatorio(pdf_paths, output_file='Relatório.xlsx'):
+def gerarRelatorio(pdf_paths, output_file):
     data = [gerarLinha(pdf_path) for pdf_path in pdf_paths]
     df = pd.DataFrame(data)
 
