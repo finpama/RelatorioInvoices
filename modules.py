@@ -1,38 +1,21 @@
 import pdfplumber
-from numbers import Number
 import pandas as pd
 import os
+import re
+import pyperclip
 
 coord = {
-    'Processo': (136.4, 409.0, 217.9, 423.4),
+    'Processo': (136.4, 409.0, 350.9, 423.4),
     'Invoice': (83.0, 320.0, 150.0, 340.0),
     'Número': None,
     'Código': None,
-    'Descrição': (55.7, 493.9, 214.1, 530.1),
-    'Container': (121.4, 521.3, 174.2, 531.4),
+    'Descrição': (55.7, 493.9, 200.1, 540.1),
+    'Container': (35.4, 510, 174.2, 600.4),
     'Peso': (316.3, 494.4, 350.9, 505.4),
     'Caixas': (30.2, 494.4, 54.2, 505.4),
 }
 
-
-def lastInParentesis(str):
-    start = None
-    end = None
-    
-    for i in range(len(str) -1, 0, -1):
-        if str[i] == ')':
-            end = i
-
-        elif str[i] == '(':
-            start = i + 1
-            
-    if start == None or end == None:
-        return None
-    else:
-        return str[start:end]
-
-
-def gerarLinha(filepath):
+def gerarLinha(filepath:str):
 
     data = {}
 
@@ -45,27 +28,29 @@ def gerarLinha(filepath):
                 case 'Processo':
                     box = firstPage.within_bbox(bbox)
                     txt = box.extract_text()
-                    index = txt.find('-')
                     
-                    if index == -1:
-                        process = txt
-                            
+                    process = re.search(r'(\d{5}[\/-]\d{2})', txt)
+                    
+                    if process != None:
+                        data[column] = process.group(1)
+                    
                     else:
-                        process = txt[index+1:]
+                        process = re.search(r'(\d{4}[\/-]\d{2})', txt)
                         
-                    if process[0] == '0':
-                        data[column] = process
-                    else:
-                        data[column] = '0' + process
+                        if process != None:
+                            data[column] = '0' + process.group(1)
+                            
+                        else:
+                            data[column] = 'Não encontrado'
+                    
                     
                 case 'Número':
-                    invoiceIndex = lastInParentesis(filepath)
+                    invoiceIndex = re.search(r'\((\d+)\)', filepath, re.UNICODE)
                     
-                    if not isinstance(invoiceIndex, Number):
-                        invoiceIndex = "Sem Número"
-                    
-                    data[column] = invoiceIndex
-                    
+                    if invoiceIndex != None:
+                        data[column] = invoiceIndex.group(1)
+                    else:
+                        data[column] = "Sem Número"
                     
                     
                 case 'Código':
@@ -98,6 +83,16 @@ def gerarLinha(filepath):
                         case _:
                             data['Código'] = 'Desconhecido'
                             data[column] = txt
+                case 'Container':
+                    box = firstPage.within_bbox(bbox)
+                    txt = box.extract_text()
+                    
+                    ctnr = re.search(r'([A-Z]{4}\d{7})', txt)
+                    
+                    if ctnr != None:
+                        data[column] = ctnr.group(1)
+                    else:
+                        data[column] = 'Não Encontrado'
                 
                 case _:
                     box = firstPage.within_bbox(bbox)
@@ -118,9 +113,8 @@ def listaArquivosPdf(dir_path:str) -> list[str]:
     return pdf_paths
 
 
-def gerarRelatorio(pdf_paths, output_file):
+def gerarRelatorio(pdf_paths:list[str], output_file:str):
     data = [gerarLinha(pdf_path) for pdf_path in pdf_paths]
     df = pd.DataFrame(data)
-
+    
     df.to_excel(output_file, index=False)
-
