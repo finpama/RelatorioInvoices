@@ -2,7 +2,6 @@ import pdfplumber
 import pandas as pd
 import os
 import re
-import pyperclip
 
 coord = {
     'Processo': (136.4, 409.0, 350.9, 423.4),

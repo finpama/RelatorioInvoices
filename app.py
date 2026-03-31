@@ -2,9 +2,12 @@ import sys
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QFile, QIODevice
+import qdarktheme
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    qdarktheme.setup_theme("light")
 
     ui_file_name = "layout.ui"
     ui_file = QFile(ui_file_name)
