@@ -1,7 +1,10 @@
 import sys
+import os
+import ctypes
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QFileDialog, QMessageBox
 from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QIcon
 
 from ui_layout import Ui_MainWindow
 
@@ -10,8 +13,21 @@ import pandas as pd
 from modules.Datamodel import PandasModel
 from modules.DataframeInvoices import gerarRelatorio
 
-# Observação! Após editar o arquivo .ui sempre lembrar de converter para .py com:
-# > pyside6-uic layout.ui -o ui_layout.py
+myappid = 'gtf.Relatorio.Invoices.1' 
+try:
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except Exception:
+    pass
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+        
+    return os.path.join(base_path, relative_path)
+
 
 
 class MainWindow(QMainWindow):
@@ -62,6 +78,7 @@ class MainWindow(QMainWindow):
         # Configuração do layout:
         
         self.setMinimumSize(QSize(740, 450))  # cada linha na DataTable tem altura: deltaH = 40
+        self.setWindowIcon(QIcon(resource_path('./icone.ico')))
         
         self.ui.GenerateButton.setMinimumSize(QSize(163, 31))
         self.ui.GenerateButton.setMaximumSize(QSize(163, 31))
