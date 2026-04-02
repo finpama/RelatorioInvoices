@@ -1,6 +1,5 @@
 import pdfplumber
 import pandas as pd
-import os
 import re
 
 coord = {
@@ -31,13 +30,13 @@ def gerarLinha(filepath:str):
                     process = re.search(r'(\d{5}[\/-]\d{2})', txt)
                     
                     if process != None:
-                        data[column] = process.group(1)
+                        data[column] = process.group(1).replace('/', '-')
                     
                     else:
                         process = re.search(r'(\d{4}[\/-]\d{2})', txt)
                         
                         if process != None:
-                            data[column] = '0' + process.group(1)
+                            data[column] = '0' + process.group(1).replace('/', '-')
                             
                         else:
                             data[column] = 'Não encontrado'
@@ -99,21 +98,8 @@ def gerarLinha(filepath:str):
                     data[column] = txt
     return data
 
-
-def listaArquivosPdf(dir_path:str) -> list[str]:
-    files = os.listdir(dir_path)
-    pdf_paths = []
-    
-    for file in files:
-        if file.endswith('.pdf') or file.endswith('.PDF'):
-            pdf_path = os.path.join(dir_path, file)
-            pdf_paths.append(pdf_path)
-    
-    return pdf_paths
-
-
-def gerarRelatorio(pdf_paths:list[str], output_file:str):
+def gerarRelatorio(pdf_paths:list[str]):
     data = [gerarLinha(pdf_path) for pdf_path in pdf_paths]
     df = pd.DataFrame(data)
     
-    df.to_excel(output_file, index=False)
+    return df
