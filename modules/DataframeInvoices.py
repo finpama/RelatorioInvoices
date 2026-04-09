@@ -85,10 +85,10 @@ def gerarLinha(filepath:str):
                     box = firstPage.within_bbox(bbox)
                     txt = box.extract_text()
                     
-                    ctnr = re.search(r'([A-Z]{4}\d{7})', txt)
+                    ctnr = re.search(r'([A-Z]{4}[-|\/_ ]*\d{6}[-|\/_ ]*\d)', txt)
                     
                     if ctnr != None:
-                        data[column] = ctnr.group(1)
+                        data[column] = ctnr.group(1).replace(' ', '')
                     else:
                         data[column] = 'Não Encontrado'
                 
