@@ -1,16 +1,21 @@
 import pdfplumber
 import pandas as pd
 import re
+import pyperclip
+
+from .OCR import pdf_imageToStr
 
 coord = {
-    'Processo': (136.4, 409.0, 350.9, 423.4),
-    'Invoice': (83.0, 320.0, 150.0, 340.0),
-    'Número': None,
-    'Código': None,
-    'Descrição': (55.7, 493.9, 200.1, 540.1),
-    'Container': (35.4, 510, 174.2, 600.4),
-    'Peso': (316.3, 494.4, 350.9, 505.4),
-    'Caixas': (30.2, 494.4, 54.2, 505.4),
+    'Processo': (r"\b(\d{5}[\/-]\d{2}[a-zA-Z])\b", r"\b(\d{4}[\/-]\d{2}[a-zA-Z])\b", r"\b(\d{5}[\/-]\d{2})\b", r"\b(\d{4}[\/-]\d{2})\b"),
+    'Invoice': r"Invoice\n*(\d+)",
+    'Número': r"\((\d+)\)",
+    'Código': None, # definido sem utilizar o padrão regex
+    'Descrição': r"Cancao fries.*x(\d)",
+    'Container': r"([A-Z]{4}[-|\/_ ]?\d{6}[-|\/_ ]?\d)",
+    'Peso': r"Value\n.*?([\d,.]{3,10})\|",
+    'Caixas': r"Value\n.*?\|.*?\|.*?([\d.,]{1,10})", 
+    'Valor Un.': r".*? .*? ([\d,.].*?) ", # definido com o peso concatenado com este padrão regex 
+    'Valor Total': r"Value\n.*?\|.*?\|.*?([\d.,]{4,10})\n",
 }
 
 def gerarLinha(filepath:str):
@@ -19,53 +24,63 @@ def gerarLinha(filepath:str):
 
     with pdfplumber.open(filepath) as invoice:
         firstPage = invoice.pages[0]
+        pageText = firstPage.extract_text()
         
-        for column, bbox in coord.items():
-            
-            match column:
-                case 'Processo':
-                    box = firstPage.within_bbox(bbox)
-                    txt = box.extract_text()
+        if pageText == '':
+            pageText = pdf_imageToStr(firstPage)
+            isOCR = 'isOCR'
+        else:
+            isOCR = 'isNotOCR'
+        
+        for column, rePattern in coord.items():
+            if rePattern != None:
+                
+                if column == 'Processo':
+                    patterns = rePattern
                     
-                    process = re.search(r'(\d{5}[\/-]\d{2})', txt)
+                    process = None
+                    found = False
                     
-                    if process != None:
-                        data[column] = process.group(1).replace('/', '-')
-                    
-                    else:
-                        process = re.search(r'(\d{4}[\/-]\d{2})', txt)
+                    for i in range(0, len(patterns), 2): # pesquisa usando padrões de dois em dois, para verificar 5 e 4 digitos de processo com letra e depois sem letra
+                        
+                        firstPattern = patterns[i]
+                        secondPattern = patterns[i+1]
+                        
+                        process = re.search(firstPattern, pageText)
                         
                         if process != None:
-                            data[column] = '0' + process.group(1).replace('/', '-')
-                            
+                            data[column] = process.group(1).replace('/', '-').strip()
+                            found = True
+                            break
                         else:
-                            data[column] = 'Não encontrado'
+                            process = re.search(secondPattern, pageText)
+                            
+                            if process != None:
+                                data[column] = '0' + process.group(1).replace('/', '-').strip()
+                                found = True
+                                break
                     
-                    
-                case 'Número':
-                    invoiceIndex = re.search(r'\((\d+)\)', filepath, re.UNICODE)
+                    if not found: 
+                        data[column] = 'Não encontrado'
+                
+                
+                elif column == 'Número':
+                    invoiceIndex = re.search(rePattern, filepath, re.UNICODE)
                     
                     if invoiceIndex != None:
-                        data[column] = invoiceIndex.group(1)
+                        data[column] = invoiceIndex.group(1).strip()
                     else:
                         data[column] = "Sem Número"
-                    
-                    
-                case 'Código':
-                    continue
                 
-                case 'Descrição':
-                    box = firstPage.within_bbox(bbox)
-                    txt = box.extract_text()
-                    index = txt.find('x')
+                elif column == 'Descrição':
+                    sizeChar = re.search(rePattern, pageText)
                     
-                    if index != -1:
-                        nextChar = txt[index+1]
+                    if sizeChar != None:
+                        sizeChar = sizeChar.group(1)
                     else:
-                        nextChar = None
-                        txt = 'Descrição desconhecida encontrada: ' + txt
+                        sizeChar = 'Não encontrado'
                     
-                    match nextChar:
+                    match sizeChar:
                         case '1':
                             data['Código'] = 'COMPRO000069'
                             data[column] = 'BATATA PALITO CONGELADA 9 X 9 MM PACOTE 1,1 KG CAIXA PP 9,9 KG (CANCAO ALIMENTOS)'
@@ -79,23 +94,46 @@ def gerarLinha(filepath:str):
                             data[column] = 'BATATA PALITO CONGELADA 9 X 9 MM PACOTE 400 G CAIXA PP 10 KG (CANCAO ALIMENTOS)'
 
                         case _:
-                            data['Código'] = 'Desconhecido'
-                            data[column] = txt
-                case 'Container':
-                    box = firstPage.within_bbox(bbox)
-                    txt = box.extract_text()
+                            data['Código'] = 'Não encontrado'
+                            data[column] = 'Não encontrado'
+                
+                elif column == 'Container':
                     
-                    ctnr = re.search(r'([A-Z]{4}[-|\/_ ]*\d{6}[-|\/_ ]*\d)', txt)
+                    cntr = re.search(rePattern, pageText)
                     
-                    if ctnr != None:
-                        data[column] = ctnr.group(1).replace(' ', '')
+                    if cntr != None:
+                        cntr = cntr.group(1)
+                        data[column] = re.sub(r'[-|\/_ ]', '', cntr)
                     else:
                         data[column] = 'Não Encontrado'
                 
-                case _:
-                    box = firstPage.within_bbox(bbox)
-                    txt = box.extract_text()
-                    data[column] = txt
+                
+                elif column == 'Valor Un.': # tratamento apenas depois da coluna "Peso"
+                    
+                        weight:str = data['Peso']
+                        
+                        escapedWeight = re.sub(r'(?=\.)', r'\\', weight)
+                        pattern = escapedWeight + rePattern
+                        
+                        print(pattern)
+                        
+                        netPrice = re.search(pattern, pageText)
+                        if netPrice != None: 
+                            data[column] = netPrice.group(1)
+                        else: 
+                            data[column] = "Não encontrado"
+                
+                
+                else: # casos comuns:
+                    
+                    res = re.search(rePattern, pageText)
+                    if res != None:
+                        data[column] = res.group(1).strip()
+                    else:
+                        data[column] = 'Não Encontrado'
+                    
+                    
+            
     return data
 
 def gerarRelatorio(pdf_paths:list[str]):
