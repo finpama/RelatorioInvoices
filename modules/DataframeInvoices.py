@@ -12,10 +12,23 @@ coord = {
     'Código': None, # definido sem utilizar o padrão regex
     'Descrição': r"Cancao fries.*x(\d)",
     'Container': r"([A-Z]{4}[-|\/_ ]?\d{6}[-|\/_ ]?\d)",
-    'Peso': r"Value\n.*?([\d,.]{3,10})\|",
-    'Caixas': r"Value\n.*?\|.*?\|.*?([\d.,]{1,10})", 
-    'Valor Un.': r".*? .*? ([\d,.].*?) ", # definido com o peso concatenado com este padrão regex 
-    'Valor Total': r"Value\n.*?\|.*?\|.*?([\d.,]{4,10})\n",
+    
+    'Peso': {
+        'OCR': r"Value\n.*?([\d,.]{3,10})\|",
+        'notOCR': r"Lacre numero[\w\s]*?\n.*? ([\d,.]*?) ",
+    },
+    
+    'Caixas': {
+        'OCR': r"Value\n.*?\|.*?\|.*?([\d.,]{1,10})",
+        'notOCR': r"Quantidade de Caixas[^\d]*?([\d.,]+)\b",
+    },
+    
+    'Valor Un.': r".*? .*? ([\d,.].*?) ", # definido com o peso concatenado com este padrão regex
+    
+    'Valor Total': {
+        'OCR': r"Value\n.*?\|.*?\|.*?([\d.,]{4,10})\n",
+        'notOCR': r"Lacre numero[\w\s]*?\n.*?([\d.,]{4,10})\n",
+    },
 }
 
 def gerarLinha(filepath:str):
@@ -28,9 +41,9 @@ def gerarLinha(filepath:str):
         
         if pageText == '':
             pageText = pdf_imageToStr(firstPage)
-            isOCR = 'isOCR'
+            isOCR = 'OCR'
         else:
-            isOCR = 'isNotOCR'
+            isOCR = 'notOCR'
         
         for column, rePattern in coord.items():
             if rePattern != None:
@@ -115,14 +128,20 @@ def gerarLinha(filepath:str):
                         escapedWeight = re.sub(r'(?=\.)', r'\\', weight)
                         pattern = escapedWeight + rePattern
                         
-                        print(pattern)
-                        
                         netPrice = re.search(pattern, pageText)
                         if netPrice != None: 
                             data[column] = netPrice.group(1)
                         else: 
                             data[column] = "Não encontrado"
                 
+                
+                elif column == 'Peso' or column == 'Caixas' or column == 'Valor Total':
+                    
+                    res = re.search(rePattern[isOCR], pageText)
+                    if res != None:
+                        data[column] = res.group(1).strip().replace('.', '') if column == 'Caixas' else res.group(1).strip()
+                    else:
+                        data[column] = 'Não Encontrado'
                 
                 else: # casos comuns:
                     
